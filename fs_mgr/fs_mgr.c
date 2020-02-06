@@ -46,11 +46,13 @@
 #define KEY_LOC_PROP   "ro.crypto.keyfile.userdata"
 #define KEY_IN_FOOTER  "footer"
 
-#define E2FSCK_BIN      "/system/bin/e2fsck"
+#define E2FSCK_BIN      "/e2fsck"
+#define RESIZE2FS_BIN      "/resize2fs"
 #define F2FS_FSCK_BIN  "/system/bin/fsck.f2fs"
 #define MKSWAP_BIN      "/system/bin/mkswap"
 
 #define FSCK_LOG_FILE   "/dev/fscklogs/log"
+#define R2FS_LOG_FILE   "/dev/fscklogs/resize2fs_log"
 
 #define ZRAM_CONF_DEV   "/sys/block/zram0/disksize"
 
@@ -95,6 +97,11 @@ static void check_fs(char *blk_device, char *fs_type, char *target)
     char *e2fsck_argv[] = {
         E2FSCK_BIN,
         "-y",
+        "-f",
+        blk_device
+    };
+    char *resize2fs_argv[] = {
+        RESIZE2FS_BIN,
         blk_device
     };
 
@@ -136,6 +143,17 @@ static void check_fs(char *blk_device, char *fs_type, char *target)
             if (ret < 0) {
                 /* No need to check for error in fork, we can't really handle it now */
                 ERROR("Failed trying to run %s\n", E2FSCK_BIN);
+            }
+
+
+            /* Attempt to resize filesystem to match partition */
+            INFO("Running %s on %s\n", RESIZE2FS_BIN, blk_device);
+            ret = android_fork_execvp_ext(ARRAY_SIZE(resize2fs_argv), resize2fs_argv,
+                                        &status, true, LOG_KLOG | LOG_FILE,
+                                        true, R2FS_LOG_FILE);
+            if (ret < 0) {
+                /* No need to check for error in fork, we can't really handle it now */
+                ERROR("Failed trying to run %s\n", RESIZE2FS_BIN);
             }
         }
     } else if (!strcmp(fs_type, "f2fs")) {
